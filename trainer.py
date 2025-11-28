@@ -10,19 +10,6 @@ class BeerTrainer:
     def __init__(self, data_file=DATA_FILE, beer_db_file=BEER_DB_FILE):
         self.data_file = data_file
         self.feedback = []
-        self.profile = defaultdict(float)
-        self.styleimport json
-import os
-from collections import defaultdict
-import pandas as pd
-
-DATA_FILE = "user_feedback.json"
-BEER_DB_FILE = "beer_data.xlsx"
-
-class BeerTrainer:
-    def __init__(self, data_file=DATA_FILE, beer_db_file=BEER_DB_FILE):
-        self.data_file = data_file
-        self.feedback = []
         self.profile = defaultdict(float)      # 好みベクトル
         self.style_words = defaultdict(list)   # スタイルごとの説明文
 
@@ -31,6 +18,7 @@ class BeerTrainer:
 
         # 過去のフィードバックを読み込む
         self.load_feedback()
+
 
     # --------------------------
     # ビールデータ読み込み
@@ -210,4 +198,5 @@ if __name__ == "__main__":
 
     print("Top beers:", trainer.get_top_beers())
     print("Hazy IPA examples:", trainer.get_style_examples("Hazy IPA"))
+
 
