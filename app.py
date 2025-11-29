@@ -21,8 +21,8 @@ df_all.columns = ["name_jp", "style_main_jp", "adv", "price"]
 
 # スマホ向けレイアウト
 st.set_page_config(page_title="AIソムリエ", layout="centered")
-st.title("🍺 AIソムリエ学習アプリ")
-st.markdown("お題を入力し、スタイル・ビールを選択して説明を入力してください。")
+st.title("")
+st.markdown("")
 
 # -----------------------
 # お題入力
