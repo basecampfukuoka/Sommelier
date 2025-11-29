@@ -16,7 +16,6 @@ if FEEDBACK_FILE.exists():
         feedback_data = json.load(f)
 
 # Excel読み込み（列番号で安全に指定）
-# C=2(name_jp), L=11(style_main_jp), O=14(adv), R=17(price)
 df_all = pd.read_excel(EXCEL_FILE, usecols=[2,11,14,17])
 df_all.columns = ["name_jp", "style_main_jp", "adv", "price"]
 
@@ -34,13 +33,8 @@ current_topic = st.text_input("お題（フリーテキスト）", "")
 # -----------------------
 # ビール選択セット数
 # -----------------------
-st.subheader("🍺 ビール選択")
 if "num_sets" not in st.session_state:
-    st.session_state["num_sets"] = 5
-
-# 「もっと選ぶ」ボタン
-if st.button("もっと選ぶ"):
-    st.session_state["num_sets"] += 5
+    st.session_state["num_sets"] = 1
 
 # 選択UIを表示
 beer_feedback_inputs = []
@@ -65,6 +59,31 @@ for i in range(st.session_state["num_sets"]):
         "beer_info": selected_beer,
         "description": desc_input
     })
+
+# -----------------------
+# 画面下に固定する「もっと選ぶ」ボタン用 CSS
+# -----------------------
+st.markdown("""
+<style>
+.fixed-bottom {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ボタン表示（固定）
+if st.button("もっと選ぶ", key="more_sets", help="1セットずつ追加する", args=None):
+    st.session_state["num_sets"] += 1
+    st.experimental_rerun()
+
+# CSSで固定するためのラッパー
+st.markdown('<div class="fixed-bottom">', unsafe_allow_html=True)
+st.button("もっと選ぶ", key="more_sets_fixed", help="1セットずつ追加する")
+st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------
 # 送信ボタン
