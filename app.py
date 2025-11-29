@@ -79,11 +79,6 @@ st.markdown("""
 if st.button("もっと選ぶ", key="more_sets", help="1セットずつ追加する", args=None):
     st.session_state["num_sets"] += 1
 
-# CSSで固定するためのラッパー
-st.markdown('<div class="fixed-bottom">', unsafe_allow_html=True)
-st.button("もっと選ぶ", key="more_sets_fixed", help="1セットずつ追加する")
-st.markdown('</div>', unsafe_allow_html=True)
-
 # -----------------------
 # 送信ボタン
 # -----------------------
