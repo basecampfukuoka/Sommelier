@@ -37,7 +37,7 @@ for i in range(st.session_state["num_sets"]):
     st.markdown(f"### ビール {i+1}")
 
     # ①スタイル選択
-    styles = df_all['style_main_jp'].dropna().unique()
+    styles = sorted(df_all['style_main_jp'].dropna().unique())
     selected_style = st.selectbox(f"スタイルを選ぶ ({i+1})", options=styles, key=f"style_{i}")
 
     # ②ビール名選択（styleで絞り込み）
