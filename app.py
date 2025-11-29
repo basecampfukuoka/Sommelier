@@ -47,7 +47,7 @@ for i in range(st.session_state["num_sets"]):
 
     # ②ビール名選択（styleで絞り込み）
     beers_in_style = df_all[df_all['style_main_jp'] == selected_style]
-    beer_options = [f"{row['name_jp']} / adv:{row['adv']} / price:{row['price']}" for _, row in beers_in_style.iterrows()]
+    beer_options = [f"{row['name_jp']} / {row['adv']}% / ¥{row['price']}" for _, row in beers_in_style.iterrows()]
 
     selected_beer = st.selectbox(f"ビールを選ぶ ({i+1})", options=beer_options, key=f"beer_{i}")
 
