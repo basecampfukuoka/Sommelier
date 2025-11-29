@@ -1,197 +1,117 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import json
-from pathlib import Path
-import random
+import os
+from datetime import datetime
 
-# -----------------------
-# 設定
-# -----------------------
-BEERS_XLSX = Path("beers.xlsx")           # 既存の Excel ファイルを想定
-FEEDBACK_FILE = Path("beer_feedback.json")
-INITIAL_BOXES = 5                         # 最初に表示する検索ボックス数
-BOX_INCREMENT = 5                         # 「さらに表示」で増える数
-SUGGEST_LIMIT = 10                        # サジェスト表示の上限件数
+# ---------------------------
+# 初期設定
+# ---------------------------
+st.set_page_config(page_title="AIビアソムリエ - スタイル比較", layout="centered")
 
-# -----------------------
-# データ読み込み
-# -----------------------
-# beers.xlsx があれば読み込む。なければサンプルデータを使う。
-if BEERS_XLSX.exists():
-    beers_df = pd.read_excel(BEERS_XLSX, engine="openpyxl")
-    # 必要なカラムが存在するか確認し、なければ空カラムを作る
-    for col in ("name_jp", "style_main_jp"):
-        if col not in beers_df.columns:
-            beers_df[col] = ""
-    beers_df = beers_df[["name_jp", "style_main_jp"]].fillna("").astype(str)
-else:
-    # フォールバックのサンプル
-    beers_df = pd.DataFrame([
-        {"name_jp": "ホワイトエール", "style_main_jp": "ホワイトビール"},
-        {"name_jp": "IPA", "style_main_jp": "インディアペールエール"},
-        {"name_jp": "スタウト", "style_main_jp": "スタウト"},
-        {"name_jp": "ペールエール", "style_main_jp": "ペールエール"},
-        {"name_jp": "ヴァイツェン", "style_main_jp": "ヴァイツェン"},
-        {"name_jp": "ベルジャンブロンド", "style_main_jp": "ベルジャンビール"},
-        {"name_jp": "セゾン", "style_main_jp": "セゾン"},
-    ])
+FEEDBACK_FILE = "feedback_style.json"
 
-# フィードバック格納先読み込み（なければ初期化）
-if FEEDBACK_FILE.exists():
+# ---------------------------
+# JSONロード/保存
+# ---------------------------
+def load_feedback():
+    if not os.path.exists(FEEDBACK_FILE):
+        return []
     with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
-        feedback_data = json.load(f)
-else:
-    feedback_data = []
+        return json.load(f)
 
-# ワードお題（必要なら増やして）
-word_list = ["華やか", "爽やか", "ロースト感", "モルト厚め", "苦味強め", "フルーティ"]
-
-# -----------------------
-# ヘルパー関数
-# -----------------------
-def suggest_candidates(query: str, df: pd.DataFrame, style_filter: str = None, limit: int = SUGGEST_LIMIT):
-    """
-    部分一致で候補を抽出（name_jp または style_main_jp にマッチ）。
-    style_filter が与えられたらそのスタイルに絞る。
-    小文字大文字は区別しない。
-    """
-    q = str(query).strip()
-    if q == "":
-        # 空クエリは全件（style_filter があればそれに従う）
-        if style_filter:
-            candidates = df[df["style_main_jp"] == style_filter]
-        else:
-            candidates = df
-    else:
-        # 部分一致（name_jp または style_main_jp）
-        mask = df["name_jp"].str.contains(q, case=False, na=False) | df["style_main_jp"].str.contains(q, case=False, na=False)
-        candidates = df[mask]
-        if style_filter:
-            candidates = candidates[candidates["style_main_jp"] == style_filter]
-
-    # 重複を除き name_jp を優先で返す
-    names = candidates["name_jp"].drop_duplicates().tolist()
-    return names[:limit]
-
-def save_feedback(entries):
-    """
-    フィードバックエントリ（リスト）を feedback_data に追加して JSON に保存する。
-    """
-    global feedback_data
-    feedback_data.extend(entries)
+def save_feedback(data):
     with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
-        json.dump(feedback_data, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-# -----------------------
-# Streamlit UI
-# -----------------------
-st.set_page_config(page_title="AIソムリエ", layout="centered")
-st.title("🍺 AIソムリエ学習アプリ（サジェスト検索・5ボックス方式）")
-st.markdown("検索ボックスに文字を入れると候補が表示されます。name_jp と style_main_jp 両方で検索します。")
+# ---------------------------
+# エクセルロード
+# ---------------------------
+@st.cache_data
+def load_beers():
+    df = pd.read_excel("beers.xlsx")
+    return df
 
-# モード選択
-mode = st.radio("モード選択", ["ワード出題ループ", "スタイル別ビール比較ループ"], index=0)
+beers_df = load_beers()
 
-# 何個ボックスを表示しているかをセッションで管理
-if "n_boxes" not in st.session_state:
-    st.session_state["n_boxes"] = INITIAL_BOXES
+# スタイル一覧をエクセルから抽出
+styles_jp = sorted(beers_df["style_main_jp"].dropna().unique().tolist())
 
-# 「さらに表示」ボタン
-col_more = st.columns([1, 3, 1])
-with col_more[1]:
-    if st.button("さらに表示"):
-        st.session_state["n_boxes"] += BOX_INCREMENT
+# ---------------------------
+# UI 表示開始
+# ---------------------------
+st.title("🍺 AIビアソムリエ - スタイル別比較学習")
 
-# -----------------------
-# ワード出題ループ
-# -----------------------
-if mode == "ワード出題ループ":
-    st.subheader("🎯 ワード出題モード")
-    if "current_word" not in st.session_state:
-        st.session_state["current_word"] = random.choice(word_list)
+st.write("スタイルを選び、ビールを1本選んで説明を書く。")
+st.write("5 セット表示、必要なら +5 で追加表示。")
 
-    if st.button("お題ワードを出す（再抽選）"):
-        st.session_state["current_word"] = random.choice(word_list)
+# ---------------------------
+# 追加セット数管理
+# ---------------------------
+if "set_count" not in st.session_state:
+    st.session_state.set_count = 5
 
-    st.markdown(f"### 今日のワード: **{st.session_state['current_word']}**")
+def add_more():
+    st.session_state.set_count += 5
 
-    # 検索ボックス群（下に n_boxes 個表示）
-    st.markdown("**ビールを検索して選択してください（複数可）**")
-    entries_to_save = []
-    for i in range(st.session_state["n_boxes"]):
-        st.markdown(f"**検索欄 #{i+1}**")
-        query = st.text_input(f"検索テキスト #{i+1}", key=f"word_query_{i}")
-        # サジェスト（selectbox）を表示
-        suggestions = suggest_candidates(query, beers_df)
-        if suggestions:
-            choice = st.selectbox(f"候補を選ぶ #{i+1}", options=["（未選択）"] + suggestions, key=f"word_choice_{i}")
-        else:
-            choice = "（未選択）"
-        # 説明欄
-        desc = st.text_area(f"{choice if choice != '（未選択）' else 'ビール'} の説明（#{i+1}）", key=f"word_desc_{i}")
+st.button("＋ もっと選ぶ（セット追加）", on_click=add_more)
 
-        # Prepare entry but only append when user presses 送信
-        if choice != "（未選択）" and desc.strip() != "":
-            entries_to_save.append({
-                "mode": "word_loop",
-                "word": st.session_state["current_word"],
-                "name_jp": choice,
-                "description": desc.strip()
-            })
+st.write("---")
 
-    if st.button("送信 (ワードループ)"):
-        if entries_to_save:
-            save_feedback(entries_to_save)
-            st.success(f"{len(entries_to_save)} 件を保存しました。")
-        else:
-            st.info("保存する説明が見つかりませんでした。選択と説明を確認してください。")
+# ---------------------------
+# 入力フォーム
+# ---------------------------
 
-# -----------------------
-# スタイル別ビール比較ループ
-# -----------------------
-else:
-    st.subheader("🎨 スタイル別比較モード")
-    # スタイル選択（Excel にある style_main_jp 列のユニーク値）
-    styles = beers_df["style_main_jp"].replace("", pd.NA).dropna().unique().tolist()
-    styles = sorted(styles)
-    if not styles:
-        st.warning("beers.xlsx に style_main_jp のデータがありません。")
-    selected_style = st.selectbox("スタイルを選択 (style_main_jp)", options=["（指定なし）"] + styles, index=0)
+feedback_entries = []
 
-    st.markdown("**スタイル条件を使って検索して選択してください（複数可）**")
-    entries_to_save = []
-    # 表示するボックス数は同じく n_boxes
-    for i in range(st.session_state["n_boxes"]):
-        st.markdown(f"**検索欄 #{i+1}**")
-        query = st.text_input(f"検索テキスト #{i+1}", key=f"style_query_{i}")
-        # サジェストは style が指定されていればそれで絞る
-        style_filter = None if selected_style == "（指定なし）" else selected_style
-        suggestions = suggest_candidates(query, beers_df, style_filter=style_filter)
-        if suggestions:
-            choice = st.selectbox(f"候補を選ぶ #{i+1}", options=["（未選択）"] + suggestions, key=f"style_choice_{i}")
-        else:
-            choice = "（未選択）"
-        desc = st.text_area(f"{choice if choice != '（未選択）' else 'ビール'} の説明（#{i+1}）", key=f"style_desc_{i}")
+for i in range(st.session_state.set_count):
+    st.subheader(f"セット {i + 1}")
 
-        if choice != "（未選択）" and desc.strip() != "":
-            entry = {
-                "mode": "style_loop",
-                "style_main_jp": style_filter if style_filter else "",
-                "name_jp": choice,
-                "description": desc.strip()
-            }
-            entries_to_save.append(entry)
+    # ① スタイル選択
+    style = st.selectbox(
+        f"スタイルを選ぶ（セット {i + 1}）",
+        [""] + styles_jp,
+        key=f"style_{i}"
+    )
 
-    if st.button("送信 (スタイル比較)"):
-        if entries_to_save:
-            save_feedback(entries_to_save)
-            st.success(f"{len(entries_to_save)} 件を保存しました。")
-        else:
-            st.info("保存する説明が見つかりませんでした。選択と説明を確認してください。")
+    # スタイルが選ばれたらビール候補を絞り込む
+    beers_filtered = beers_df[beers_df["style_main_jp"] == style] if style else pd.DataFrame()
 
-# -----------------------
-# フッター（デバッグ用に現在のフィードバック数表示）
-# -----------------------
-st.markdown("---")
-st.caption(f"保存済みフィードバック件数: {len(feedback_data)}")
+    # ② ビール選択（そのスタイルのビールのみ）
+    beer_names = beers_filtered["name_jp"].tolist() if not beers_filtered.empty else []
+
+    beer = st.selectbox(
+        f"ビールを選ぶ（セット {i + 1}）",
+        [""] + beer_names,
+        key=f"beer_{i}"
+    )
+
+    # 説明入力
+    explanation = st.text_area(
+        f"説明（セット {i + 1}）",
+        key=f"exp_{i}",
+        placeholder="このビールは◯◯で、理由は◯◯…"
+    )
+
+    # 有効な入力のみ保存対象とする
+    if style and beer and explanation.strip():
+        feedback_entries.append({
+            "style_main_jp": style,
+            "beer_name_jp": beer,
+            "explanation": explanation.strip(),
+            "timestamp": datetime.now().isoformat()
+        })
+
+st.write("---")
+
+# ---------------------------
+# 保存ボタン
+# ---------------------------
+if st.button("保存する"):
+    if feedback_entries:
+        old = load_feedback()
+        old.extend(feedback_entries)
+        save_feedback(old)
+        st.success("保存しました！AIソムリエ学習データに追加しました。")
+    else:
+        st.warning("保存対象のデータがありません。")
