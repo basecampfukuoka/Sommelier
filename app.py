@@ -16,9 +16,9 @@ if FEEDBACK_FILE.exists():
 else:
     feedback_data = []
 
-# ビールデータ読み込み（Excel A列: style_main_jp, B列: name_jp）
-beers_df = pd.read_excel(EXCEL_FILE, usecols=[0, 1])
-beers_df.columns = ["style_main_jp", "name_jp"]
+# ビールデータ読み込み（Excel L列: style_main_jp, C列: name_jp, O列: adv, R列: price）
+beers_df = pd.read_excel(EXCEL_FILE, usecols=["L", "C", "O", "R"])
+beers_df.columns = ["style_main_jp", "name_jp", "adv", "price"]
 
 # -----------------------
 # スマホ向けレイアウト
@@ -50,20 +50,27 @@ for i in range(num_sets):
     word = st.text_input(f"お題 (セット {i+1})", key=f"word_{i}")
 
     # スタイル選択
-    style_options = sorted(beers_df['style_main_jp'].unique())
+    style_options = sorted(beers_df['style_main_jp'].dropna().unique())
     selected_style = st.selectbox(f"スタイル選択 (セット {i+1})", options=style_options, key=f"style_{i}")
 
-    # 選んだスタイルに紐づくビール名選択
-    beer_options = beers_df[beers_df['style_main_jp'] == selected_style]['name_jp'].tolist()
-    selected_beer = st.selectbox(f"ビール選択 (セット {i+1})", options=beer_options, key=f"beer_{i}")
+    # 選んだスタイルに紐づくビール名選択（adv / price付きで表示）
+    style_beers = beers_df[beers_df['style_main_jp'] == selected_style]
+    beer_options = [
+        f"{row['name_jp']}  ({row['adv']} / {row['price']})"
+        for idx, row in style_beers.iterrows()
+    ]
+    selected_beer_full = st.selectbox(f"ビール選択 (セット {i+1})", options=beer_options, key=f"beer_{i}")
+
+    # 選択されたビール名だけを抽出（adv/priceは別保存してもOK）
+    selected_beer_name = selected_beer_full.split("  (")[0]
 
     # 説明入力
-    description = st.text_area(f"{selected_beer} の説明 (セット {i+1})", key=f"desc_{i}")
+    description = st.text_area(f"{selected_beer_name} の説明 (セット {i+1})", key=f"desc_{i}")
 
     inputs.append({
         "word": word,
         "style_main_jp": selected_style,
-        "name_jp": selected_beer,
+        "name_jp": selected_beer_name,
         "description": description
     })
 
