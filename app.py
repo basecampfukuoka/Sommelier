@@ -19,11 +19,6 @@ if FEEDBACK_FILE.exists():
 df_all = pd.read_excel(EXCEL_FILE, usecols=[2,11,14,17])
 df_all.columns = ["name_jp", "style_main_jp", "adv", "price"]
 
-# スマホ向けレイアウト
-st.set_page_config(page_title="AIソムリエ", layout="centered")
-st.title("")
-st.markdown("")
-
 # -----------------------
 # お題入力
 # -----------------------
