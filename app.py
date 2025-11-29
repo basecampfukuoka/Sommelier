@@ -195,4 +195,3 @@ else:
 # -----------------------
 st.markdown("---")
 st.caption(f"保存済みフィードバック件数: {len(feedback_data)}")
-
