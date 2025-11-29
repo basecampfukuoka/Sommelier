@@ -4,92 +4,116 @@ import json
 from pathlib import Path
 
 # -----------------------
-# データ設定
+
+# 設定
+
 # -----------------------
+
+EXCEL_FILE = "beers.xlsx"
 FEEDBACK_FILE = Path("beer_feedback.json")
-EXCEL_FILE = "beer_data.xlsx"
 
 # JSON読み込み
+
 if FEEDBACK_FILE.exists():
-    with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
-        feedback_data = json.load(f)
+with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+feedback_data = json.load(f)
 else:
-    feedback_data = []
+feedback_data = []
 
-# ビールデータ読み込み（Excel L列: style_main_jp, C列: name_jp, O列: adv, R列: price）
-beers_df = pd.read_excel(EXCEL_FILE, usecols=["L", "C", "O", "R"])
-beers_df.columns = ["style_main_jp", "name_jp", "adv", "price"]
+# Excel読み込み（列番号で安全に指定）
 
-# -----------------------
+# C=2(name_jp), L=11(style_main_jp), O=14(adv), R=17(price)
+
+df_all = pd.read_excel(EXCEL_FILE, usecols=[2,11,14,17])
+df_all.columns = ["name_jp", "style_main_jp", "adv", "price"]
+
 # スマホ向けレイアウト
-# -----------------------
+
 st.set_page_config(page_title="AIソムリエ", layout="centered")
 st.title("🍺 AIソムリエ学習アプリ")
-st.markdown("お題入力 → ビール選択 → 説明入力の順に入力してください。")
+st.markdown("お題を入力し、スタイル・ビールを選択して説明を入力してください。")
 
 # -----------------------
-# セット数管理
+
+# お題入力
+
 # -----------------------
+
+st.subheader("🎯 お題入力")
+current_topic = st.text_input("お題（フリーテキスト）", "")
+
+# -----------------------
+
+# ビール選択セット数
+
+# -----------------------
+
+st.subheader("🍺 ビール選択")
 if "num_sets" not in st.session_state:
-    st.session_state["num_sets"] = 5
+st.session_state["num_sets"] = 5
 
-# 「もっと選ぶ」ボタンで +5セット
+# 「もっと選ぶ」ボタン
+
 if st.button("もっと選ぶ"):
-    st.session_state["num_sets"] += 5
+st.session_state["num_sets"] += 5
 
-num_sets = st.session_state["num_sets"]
+# 選択UIを表示
 
-# -----------------------
-# 各セットの入力
-# -----------------------
-inputs = []
-for i in range(num_sets):
-    st.markdown(f"### セット {i+1}")
+beer_feedback_inputs = []  # 後で送信時に収集
+for i in range(st.session_state["num_sets"]):
+st.markdown(f"### ビール選択セット {i+1}")
 
-    # お題フリーテキスト
-    word = st.text_input(f"お題 (セット {i+1})", key=f"word_{i}")
+```
+# ①スタイル選択
+styles = df_all['style_main_jp'].dropna().unique()
+selected_style = st.selectbox(f"スタイルを選ぶ ({i+1})", options=styles, key=f"style_{i}")
 
-    # スタイル選択
-    style_options = sorted(beers_df['style_main_jp'].dropna().unique())
-    selected_style = st.selectbox(f"スタイル選択 (セット {i+1})", options=style_options, key=f"style_{i}")
+# ②ビール名選択（styleで絞り込み）
+beers_in_style = df_all[df_all['style_main_jp'] == selected_style]
+beer_options = [f"{row['name_jp']} / adv:{row['adv']} / price:{row['price']}" for _, row in beers_in_style.iterrows()]
 
-    # 選んだスタイルに紐づくビール名選択（adv / price付きで表示）
-    style_beers = beers_df[beers_df['style_main_jp'] == selected_style]
-    beer_options = [
-        f"{row['name_jp']}  ({row['adv']} / {row['price']})"
-        for idx, row in style_beers.iterrows()
-    ]
-    selected_beer_full = st.selectbox(f"ビール選択 (セット {i+1})", options=beer_options, key=f"beer_{i}")
+selected_beer = st.selectbox(f"ビールを選ぶ ({i+1})", options=beer_options, key=f"beer_{i}")
 
-    # 選択されたビール名だけを抽出（adv/priceは別保存してもOK）
-    selected_beer_name = selected_beer_full.split("  (")[0]
+# 説明入力
+desc_input = st.text_area(f"説明を入力 ({i+1})", key=f"desc_{i}")
 
-    # 説明入力
-    description = st.text_area(f"{selected_beer_name} の説明 (セット {i+1})", key=f"desc_{i}")
-
-    inputs.append({
-        "word": word,
-        "style_main_jp": selected_style,
-        "name_jp": selected_beer_name,
-        "description": description
-    })
+# 入力をリストに保持
+beer_feedback_inputs.append({
+    "style_main_jp": selected_style,
+    "beer_info": selected_beer,
+    "description": desc_input
+})
+```
 
 # -----------------------
-# 保存ボタン
-# -----------------------
-if st.button("送信して保存"):
-    for entry in inputs:
-        if entry['word'].strip() and entry['description'].strip():
-            feedback_data.append({
-                "mode": "free_text_loop",
-                "word": entry['word'],
-                "style_main_jp": entry['style_main_jp'],
-                "name_jp": entry['name_jp'],
-                "description": entry['description']
-            })
 
-    # JSON保存
+# 送信ボタン
+
+# -----------------------
+
+if st.button("送信"):
+if current_topic.strip() == "":
+st.warning("お題を入力してください。")
+else:
+for entry in beer_feedback_inputs:
+if entry["description"].strip() == "":
+continue
+# JSON保存用に整理
+name_jp = entry["beer_info"].split(" / ")[0]
+adv = entry["beer_info"].split(" / ")[1].replace("adv:","")
+price = entry["beer_info"].split(" / ")[2].replace("price:","")
+
+```
+        feedback_data.append({
+            "topic": current_topic,
+            "style_main_jp": entry["style_main_jp"],
+            "name_jp": name_jp,
+            "adv": adv,
+            "price": price,
+            "description": entry["description"]
+        })
+    # JSONに保存
     with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
         json.dump(feedback_data, f, ensure_ascii=False, indent=2)
-
     st.success("説明を保存しました！")
+```
