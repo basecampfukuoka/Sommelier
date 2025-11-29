@@ -6,7 +6,7 @@ from pathlib import Path
 # -----------------------
 # 設定
 # -----------------------
-EXCEL_FILE = "beers.xlsx"
+EXCEL_FILE = "beer_data.xlsx"
 FEEDBACK_FILE = Path("beer_feedback.json")
 
 # JSON読み込み
