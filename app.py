@@ -34,7 +34,7 @@ if "num_sets" not in st.session_state:
 # 選択UIを表示
 beer_feedback_inputs = []
 for i in range(st.session_state["num_sets"]):
-    st.markdown(f"### ビール選択セット {i+1}")
+    st.markdown(f"### ビール {i+1}")
 
     # ①スタイル選択
     styles = df_all['style_main_jp'].dropna().unique()
