@@ -78,7 +78,6 @@ st.markdown("""
 # ボタン表示（固定）
 if st.button("もっと選ぶ", key="more_sets", help="1セットずつ追加する", args=None):
     st.session_state["num_sets"] += 1
-    st.experimental_rerun()
 
 # CSSで固定するためのラッパー
 st.markdown('<div class="fixed-bottom">', unsafe_allow_html=True)
