@@ -4,116 +4,90 @@ import json
 from pathlib import Path
 
 # -----------------------
-
 # 設定
-
 # -----------------------
-
 EXCEL_FILE = "beers.xlsx"
 FEEDBACK_FILE = Path("beer_feedback.json")
 
 # JSON読み込み
-
-if FEEDBACK_FILE.exists():
-with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
-feedback_data = json.load(f)
-else:
 feedback_data = []
+if FEEDBACK_FILE.exists():
+    with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+        feedback_data = json.load(f)
 
 # Excel読み込み（列番号で安全に指定）
-
 # C=2(name_jp), L=11(style_main_jp), O=14(adv), R=17(price)
-
 df_all = pd.read_excel(EXCEL_FILE, usecols=[2,11,14,17])
 df_all.columns = ["name_jp", "style_main_jp", "adv", "price"]
 
 # スマホ向けレイアウト
-
 st.set_page_config(page_title="AIソムリエ", layout="centered")
 st.title("🍺 AIソムリエ学習アプリ")
 st.markdown("お題を入力し、スタイル・ビールを選択して説明を入力してください。")
 
 # -----------------------
-
 # お題入力
-
 # -----------------------
-
 st.subheader("🎯 お題入力")
 current_topic = st.text_input("お題（フリーテキスト）", "")
 
 # -----------------------
-
 # ビール選択セット数
-
 # -----------------------
-
 st.subheader("🍺 ビール選択")
 if "num_sets" not in st.session_state:
-st.session_state["num_sets"] = 5
+    st.session_state["num_sets"] = 5
 
 # 「もっと選ぶ」ボタン
-
 if st.button("もっと選ぶ"):
-st.session_state["num_sets"] += 5
+    st.session_state["num_sets"] += 5
 
 # 選択UIを表示
-
-beer_feedback_inputs = []  # 後で送信時に収集
+beer_feedback_inputs = []
 for i in range(st.session_state["num_sets"]):
-st.markdown(f"### ビール選択セット {i+1}")
+    st.markdown(f"### ビール選択セット {i+1}")
 
-```
-# ①スタイル選択
-styles = df_all['style_main_jp'].dropna().unique()
-selected_style = st.selectbox(f"スタイルを選ぶ ({i+1})", options=styles, key=f"style_{i}")
+    # ①スタイル選択
+    styles = df_all['style_main_jp'].dropna().unique()
+    selected_style = st.selectbox(f"スタイルを選ぶ ({i+1})", options=styles, key=f"style_{i}")
 
-# ②ビール名選択（styleで絞り込み）
-beers_in_style = df_all[df_all['style_main_jp'] == selected_style]
-beer_options = [f"{row['name_jp']} / adv:{row['adv']} / price:{row['price']}" for _, row in beers_in_style.iterrows()]
+    # ②ビール名選択（styleで絞り込み）
+    beers_in_style = df_all[df_all['style_main_jp'] == selected_style]
+    beer_options = [f"{row['name_jp']} / adv:{row['adv']} / price:{row['price']}" for _, row in beers_in_style.iterrows()]
 
-selected_beer = st.selectbox(f"ビールを選ぶ ({i+1})", options=beer_options, key=f"beer_{i}")
+    selected_beer = st.selectbox(f"ビールを選ぶ ({i+1})", options=beer_options, key=f"beer_{i}")
 
-# 説明入力
-desc_input = st.text_area(f"説明を入力 ({i+1})", key=f"desc_{i}")
+    # 説明入力
+    desc_input = st.text_area(f"説明を入力 ({i+1})", key=f"desc_{i}")
 
-# 入力をリストに保持
-beer_feedback_inputs.append({
-    "style_main_jp": selected_style,
-    "beer_info": selected_beer,
-    "description": desc_input
-})
-```
+    beer_feedback_inputs.append({
+        "style_main_jp": selected_style,
+        "beer_info": selected_beer,
+        "description": desc_input
+    })
 
 # -----------------------
-
 # 送信ボタン
-
 # -----------------------
-
 if st.button("送信"):
-if current_topic.strip() == "":
-st.warning("お題を入力してください。")
-else:
-for entry in beer_feedback_inputs:
-if entry["description"].strip() == "":
-continue
-# JSON保存用に整理
-name_jp = entry["beer_info"].split(" / ")[0]
-adv = entry["beer_info"].split(" / ")[1].replace("adv:","")
-price = entry["beer_info"].split(" / ")[2].replace("price:","")
+    if current_topic.strip() == "":
+        st.warning("お題を入力してください。")
+    else:
+        for entry in beer_feedback_inputs:
+            if entry["description"].strip() == "":
+                continue
+            name_jp = entry["beer_info"].split(" / ")[0]
+            adv = entry["beer_info"].split(" / ")[1].replace("adv:","")
+            price = entry["beer_info"].split(" / ")[2].replace("price:","")
 
-```
-        feedback_data.append({
-            "topic": current_topic,
-            "style_main_jp": entry["style_main_jp"],
-            "name_jp": name_jp,
-            "adv": adv,
-            "price": price,
-            "description": entry["description"]
-        })
-    # JSONに保存
-    with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
-        json.dump(feedback_data, f, ensure_ascii=False, indent=2)
-    st.success("説明を保存しました！")
-```
+            feedback_data.append({
+                "topic": current_topic,
+                "style_main_jp": entry["style_main_jp"],
+                "name_jp": name_jp,
+                "adv": adv,
+                "price": price,
+                "description": entry["description"]
+            })
+        with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
+            json.dump(feedback_data, f, ensure_ascii=False, indent=2)
+        st.success("説明を保存しました！")
